@@ -1,0 +1,760 @@
+
+
+<!DOCTYPE html>
+<html lang="en">
+
+<head>
+  <!-- Required meta tags -->
+  <meta charset="utf-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1, shrink-to-fit=no" />
+  <meta http-equiv="content-type" content="text/html; charset=UTF-8" />
+
+  <title>Baubles - Browser based Local Web Scanner</title>
+
+  <script src="https://cdnjs.cloudflare.com/ajax/libs/axios/0.21.4/axios.min.js"></script>
+  <script src="https://cdnjs.cloudflare.com/ajax/libs/moment.js/2.29.1/moment.min.js"></script>
+
+  <!-- Required Stylesheets -->
+  <link type="text/css" rel="stylesheet" href="https://unpkg.com/bootstrap/dist/css/bootstrap.min.css" />
+  <link type="text/css" rel="stylesheet" href="https://unpkg.com/bootstrap-vue@latest/dist/bootstrap-vue.css" />
+
+  <!-- Load polyfills to support older browsers -->
+  <script src="https://polyfill.io/v3/polyfill.min.js?features=es2015%2CIntersectionObserver"></script>
+
+  <!-- Required scripts -->
+  <script src="https://unpkg.com/vue@2"></script>
+  <script src="https://unpkg.com/bootstrap-vue@latest/dist/bootstrap-vue.js"></script>
+</head>
+
+<body>
+  <!-- Our application root element -->
+  <div id="app">
+    <b-container>
+      <b-row style="padding-top:1rem; max-height: 30rem;">
+
+        <b-col cols="10">
+
+          <h2>Baubles - Browser based Local Web Scanner</h2>
+          
+        </b-col>
+      
+      </b-row>
+    
+          </b-row>
+          <b-row style="padding-top:1rem;">
+            <b-alert variant="danger" show><b>This is a work in progress/experimentation and will occasionally be slow or innacurate! Adjusting the various advanced settings might give more accurate results for your network</b></b-alert>
+            <b-button v-b-toggle.collapse-1 variant="primary">Click for more information about Baubles</b-button>
+                  <b-collapse id="collapse-1" class="mt-2">
+                    <b-card>
+
+                        <p class="card-text">
+
+See my other project, ViLNE for the origin of this (and an attack path perhaps underestimated):<br/><a href="https://github.com/VilNE-Scanner/VilNE/">https://github.com/VilNE-Scanner/VilNE/</a><br/>
+Also, please check out the rest of my blog (<a href="https://www.infosecamateur.com">infosecamateur.com</a>) or follow me on <a href="https://twitter.com/mconnarty">Twitter</a>/<a href="https://medium.com/@martinconnarty">Medium</a><br/>
+
+<br/>
+<h3>Baubles</h3><br/>
+
+Baubles is an <i>experimental (and slightly unreliable!)</i> network scanner which you can use to quickly determine some of the devices on your local network which may have web services available. <br/>
+
+                            When a port is unavailable, the browser typically takes a different amount of time to error than it does if a port is available, and again different times if it's filtered. By using 'comparator ports' which we assume are not open but filtered, we can look at the differences between closed, open and filtered and make a best guess based on the timing<br/><br/>
+    
+                            On mobiles I've noticed that the difference in times between a filtered and open port is far less distinct, and combined with the odd port closing quicker than "it should", accuracy is often affected. I'll keep tinkering though and see what I can do! <br/><br/>
+    
+                            Originally, this was a part of my other project VilNE, however while more recent CORS restrictions have reduced that surface somewhat, I found myself often using the scanning component as a quick and dirty way to find some of the devices on my network to connect to.<br/>
+                            <br/>
+                            Please reach out on twitter etc if you're interested in this work, between this and VilNE I'm still convinced people haven't clocked onto the risk of users being used to proxy attacks against internal resources via the browser. 
+                          </p>
+
+                  </b-collapse>
+            <b-col style="text-align: center;">
+  
+              
+              <br />
+              <br />
+
+              
+              <b-card>
+                <h5></h5>
+                <b-col>
+                  <h5>Networks To Scan</h5>
+                 
+                  <h7><i>Note -  255 addresses can take about 2 minutes on a Desktop, I would advise you avoid large blocks</i></h10>
+                  <p></p>
+                    <div>
+                    <h7>Quick select networks</h7>
+                    
+                          <a v-model="newNetwork" href="#" v-for="(exampleNetwork,i) in exampleNetworks" @click="exampleAddNetwork(exampleNetwork)"><br/>{{exampleNetwork}}</a>                      
+                          
+                  </div>
+                  <p></p>
+                  <h7>Manual add</h7>
+                  <b-input-group class="mt-3">
+                    <b-form-input v-model="newNetwork" placeholder="Format e.g. 192.168.1.0/24":state="newNetwork ? validNetwork : null"></b-form-input>
+                    <b-input-group-append>
+                      <b-button variant="success" @click="addNetwork">Add</b-button>
+                    </b-input-group-append>
+                  </b-input-group>
+                  <p></p>
+                  <div>
+                    <h7>Networks being scanned:</h7>
+                    <div v-for="(network,i) in networks">{{network}} <a href="#" @click="deleteNetwork(i)">X</a>
+                    </div>
+                  </div>
+                  
+                  
+                </b-card>
+                
+                <br/>
+                <b-col> 
+                  <h5>Ports To Scan</h5>
+                  <b-input-group class="mt-3">
+                    <b-form-input v-model="newPort" :state="newPort ? validPort : null" placeholder="Browser restrictions mean non standard Web ports must be between 1024 - 63535"></b-form-input>
+                    <b-input-group-append>
+                      <b-button variant="success" @click="addPort" type="number">Add</b-button>
+                    </b-input-group-append>
+                    
+                  </b-input-group>
+                  <div v-for="(port,i) in ports">{{port}} <a href="#" @click="deletePort(i)">X</a></div>
+                </b-col>
+                <br/>
+                
+                
+                  
+
+
+                <b-form-group class="mt-3">
+                  <h5>Timing Settings:</h5>
+                  <b-form-radio v-model="quickNetwork" value="mobile" @input="networkSelect">Mobile device</b-form-radio>
+                  
+                  <b-form-radio v-model="quickNetwork" value="mobilecustom" @input="networkSelect">Mobile - Advanced settings</b-form-radio>
+                    <b-form-radio v-model="quickNetwork" value="desktop" @input="networkSelect" default>Desktop</b-form-radio>
+                    
+                    <b-form-radio v-model="quickNetwork" value="desktopcustom" @input="networkSelect">Desktop - Advanced settings</b-form-radio>  
+                  
+                    
+                            
+
+                  <br />
+                  <template v-if="adjustSettings">
+
+                    
+                
+                    <b-row style="padding-top:1rem;">
+                      <b-col>
+                        <h5>Host Scan Minimum Timeout - if the browser is timing out on closed ports <i>too</i> quickly</h5>
+                        <b-form-input v-model="minTimeout">
+                      </b-col>
+                    </b-row>
+                    <b-row >
+                    
+                    <b-row style="padding-top:1rem;">
+                      <b-col>
+                        <h5>Host Scan Maximum Timeout - can speed the scan up, but may not be suitable on a slow connection where active ports are slow to respond</h5>
+                        <b-form-input v-model="timeout">
+                      </b-col>
+                    
+                      <b-col>
+                        <h5>Host Scan Group Size</h5>
+                        <b-form-input v-model="ipGroupSize"></b-form-input>
+                      </b-col>
+                                  
+                    
+                      </b-col>
+                      </b-row>
+                      <b-row style="padding-top:1rem;">
+                      <b-col>
+                        <h5>Threshold Settings</h5>
+                          
+                            <h6>% difference that counts as Port Up</h6>
+                            <b-input-group class="mt-3"></b-input-group>
+                            <b-form-input v-model="portUpThreshold" @input="portUpThreshold"></b-form-input>
+                          </b-input-group>
+                            
+                            <h6>% difference that counts as Port Filtered </h6>
+                            <b-input-group class="mt-3"></b-input-group>
+                            <b-form-input v-model="portFilterThreshold" @input="portFilterThreshold"></b-form-input>                        
+                          </b-input-group>
+                        </b-col>
+        
+                        <b-col>
+                          <h5>Comparator Port</h5>
+                          <b-input-group class="mt-3">
+                            <b-form-input v-model="newPort" :state="newPort ? validPort : null" placeholder="Browser restrictions mean non standard Web ports must be between 1024 - 63535"></b-form-input>
+                            <b-input-group-append>
+                              <b-button variant="success" @click="addcomparatorPort" type="number">Add</b-button>
+                            </b-input-group-append>
+                            
+                          </b-input-group>
+                          <div v-for="(port,i) in comparatorPorts">{{port}} <a href="#" @click="deletecomparatorPort(i)">X</a></div>
+                        </b-col>
+                      
+                      </b-row>   
+                      <br />
+                  </template>
+
+
+                  </b-form-group>
+                  <b-row style="padding-top:1rem; max-height: 30rem;">
+                  </h5>
+                  <b-button variant="success" @click="scanNow">Scan for open or filtered ports
+                  </b-button>
+                  <b-button variant="outline-primary" @click="reset">Reset</b-button>
+      
+                  
+      
+                  <h5>Host Discovery</h5>
+                  <b-progress v-if="substatuscurrent!='substatusmax'" :value="substatuscurrent" :max="substatusmax" animated></b-progress>
+                  <b-progress v-else :value="substatuscurrent" :max="substatusmax" success></b-progress>
+                  <br />
+                  <b-card title="Status">
+                    
+                    <b-card-text v-if="status==0">Waiting</b-card-text>
+                    <b-card-text v-if="status==1">Discovering Potential Network: {{addressBeingScanned}}</b-card-text>
+                    <b-card-text v-if="status==2">Scanning For Devices</b-card-text>
+                    <b-card-text v-if="status==3">Scan Complete</b-card-text>
+                    <b-tabs content-class="mt-3">
+
+                      <b-tab title="Results" v-if="status==3">
+                      <h5>Quick Select</h5>
+                      <br/>  
+                        All not including comparator ports
+                        <b-form-checkbox  id="checkbox-1" v-model="filter" name="checkbox-1" value="Timing" unchecked-value="">
+                        </b-form-checkbox>
+                        Above Port Up Threshold
+                        <b-form-checkbox  id="checkbox-1" v-model="filter" name="checkbox-1" value="Timing above PortUp threshold" unchecked-value="">
+                        </b-form-checkbox>
+                        Above Filtered Threshold
+                        <b-form-checkbox  id="checkbox-2" v-model="filter" name="checkbox-1" value="Timing above Filtered threshold" unchecked-value="">
+                        </b-form-checkbox>
+                        Below Filtered Threshold
+                        <b-form-checkbox  id="checkbox-2" v-model="filter" name="checkbox-1" value="Timing below Filtered threshold" unchecked-value="">
+                        </b-form-checkbox>
+                        </b-form-checkbox>
+                        All including Comparator
+                        <b-form-checkbox  id="checkbox-2" v-model="filter" name="checkbox-1" value=" "></b-form-checkbox>
+                        </b-form-checkbox>
+                    
+                        
+                        <b-table striped hover :items="displayTimings" :fields="timingFields" :filter="filter" :tbody-tr-class="rowClass">
+                            <template #cell(ipAddress)="data">                                    
+                                    <div v-if="data.item.portup=='Closed'" disabled>{{ data.value }}</div>
+                                    <b-link v-else-if="data.item.port=='443'" :href="`https://${data.value}:${data.item.port}`" target="_blank">{{ data.value }}</b-link>
+                                    <b-link v-else :href="`http://${data.value}:${data.item.port}`" target="_blank">{{ data.value }}</b-link>     
+                            </template>
+                          
+                        </b-table>
+                        
+                      </b-tab>
+
+                    </b-tabs>
+                  </b-card>
+      
+                </b-row>
+              
+            </b-row>
+            </b-col>
+          </b-row>
+          </b-card>
+          </b-card>
+
+          
+      <b-col>
+        <br />
+        <br />
+
+
+
+      </b-col>
+      </b-row>
+    </b-container>
+  </div>
+  <br />
+  <br />
+
+  <style>
+    body {
+      padding: 20px;
+    }
+
+    b-col {
+      font-weight: 200;
+    }
+  </style>
+
+  <script>
+    
+    var app = new Vue({
+      el: '#app',
+      data: {
+        discoveryTimeout: 300,
+        minTimeout: 25,
+        timeout: 500,
+        ipGroupSize: 16,
+        addressBeingScanned: "",
+        networksScanned: {},
+        ports: ["80", "443","8443","8008","8000"],
+        comparatorPorts: ["1111","694","1232","4422"],
+        comparatorPortSum: 0,
+        showComparator: false,
+        portUpThreshold:60,
+        portFilterThreshold:40,
+        comparatorPortAverage: 0,
+        newPort: "",
+        exampleNetworks: ["192.168.1.0/24","192.168.0.0/24","10.0.0.0/24","10.0.0.1/24","192.168.1.0/25","192.168.0.0/25","10.0.0.0/25","10.0.0.1/25"],
+        networks: [],
+        ipAddresses: [],
+        addressesToScan:[],
+        newNetwork: "",
+        status: 0,
+        overallstatusmax: 0,
+        overallstatuscurrent: 0,
+        substatusmax: 0,
+        substatuscurrent: 0,
+        terms: false,
+        Timings: [],
+        displayTimings: [],
+        filter: 'Threshold',
+        timingFields: [
+            {
+                key: 'ipAddress',
+                sortable: true
+            },            
+          {
+                key: 'port',
+                sortable: true
+            },
+            {
+                key: 'time',
+                sortable: true
+            },
+            {
+                key: 'comparatorAverage',
+                sortable: true
+            },
+            {
+                key: 'portup',
+                sortable: true
+            },
+            {
+                key: 'Percent Difference',
+                sortable: true
+            }
+        ],
+        totalTime: 0,
+        portCount: 0,
+        averageTime: 0,
+        attackHosts: false,
+        adjustSettings: false,
+        quickNetwork: "desktop",
+        networkOptions: [{
+            text: "Wired/Quick",
+            value: "true"
+          },
+          {
+            text: "Wifi/Slow",
+            value: "false"
+          }
+        ],
+        
+        stop: false
+      },
+      mounted: function(){
+        if ((window.navigator.userAgent.includes("Android")) || (window.navigator.userAgent.includes("iPhone"))){
+          this.quickNetwork="mobile"
+          this.networkSelect()
+        }
+        else{
+          this.quickNetwork="desktop"
+          this.networkSelect()
+        }
+
+      },
+      methods: {
+        addNetwork: function () {
+         if (this.validNetwork) {
+            this.networks.push(this.newNetwork);
+            this.newNetwork = "";
+          } else {
+            alert("Not a valid network!");
+          }
+        },
+        exampleAddNetwork: function (i) {         
+            this.networks.push(i);          
+        },
+        networkSelect: function () {
+          if (this.quickNetwork=="desktop") {
+            this.timeout = 500;
+            this.minTimeout = 5;
+            this.ipGroupSize = 16;
+            this.adjustSettings = false;
+          }
+          else if (this.quickNetwork=="mobile") {
+            this.timeout = 1000;
+            this.ipGroupSize = 8;
+            this.minTimeout = 5;
+            this.adjustSettings = false;
+          }
+          else if (this.quickNetwork == "mobilecustom") {
+            this.timeout = 1000;
+            this.ipGroupSize = 8;
+            this.minTimeout = 5;
+            this.adjustSettings = true;
+          }
+          else if (this.quickNetwork == "desktopcustom") {
+            this.timeout = 500;
+            this.minTimeout = 5;
+            this.ipGroupSize = 16;
+            this.adjustSettings = true;
+          }
+        },
+        deleteNetwork: function (i) {
+          this.networks.splice(i, 1);
+        },
+        addPort: function () {
+          
+          if (this.validPort) {
+            this.ports.push(this.newPort);
+          this.newPort = "";
+          } else {
+            alert("Not a valid port - Ports must be between 1024 and 63535.");
+          }
+        },
+        addcomparatorPort: function () {
+          
+          if (this.validPort) {
+            this.comparatorPorts.push(this.newPort);
+          this.newPort = "";
+          } else {
+            alert("Not a valid port - Ports must be between 1024 and 63535.");
+          }
+        },
+        deletePort: function (i) {
+          this.ports.splice(i, 1);
+        },
+        deletecomparatorPort: function (i) {
+          this.compratorPorts.splice(i, 1);
+        },
+        reset: function () {
+          this.stop = true;          
+        },
+        rowClass: function (item, type) {
+        if (!item || type !== 'row') return
+        if (item.portup === 'Timing above PortUp threshold') return 'table-success'
+        if (item.portup === 'Timing above Filtered threshold') return 'table-warning'
+        if (item.portup === 'Timing below Filtered threshold') return 'table-danger'
+        },
+        getNetworks: function (net) {
+                
+                const regexp= /^(1?[0-9]{1,2}|2[0-4][0-9]|25[0-5])\.(1?[0-9]{1,2}|2[0-4][0-9]|25[0-5])\.(1?[0-9]{1,2}|2[0-4][0-9]|25[0-5])\.(1?[0-9]{1,2}|2[0-4][0-9]|25[0-5])\/(\d{1,2})$/;
+                const match=net.match(regexp);
+                let a=`${match[1]}`;
+                let b=`${match[2]}`;
+                let c=`${match[3]}`;
+                let d=`${match[4]}`;
+                    
+                let mask=`${match[5]}`;
+
+                let octetmod=mask%8
+                let octetnumber=Math.floor(mask/8)
+                let ipaddress="";
+                
+                if (mask<=8)
+                {
+                    octetnumber=0
+                }
+                if (octetnumber==3){
+                    block=(2**(8-octetmod))
+                    numberofblocks=Math.floor(d/block)
+                    network=block*numberofblocks
+                    firsthost=network+1
+                    broadcast=network+(block-1)
+                    for (i=firsthost;i<broadcast;i++){
+                            ipaddress=`${a}.${b}.${c}.${i}` 
+                            this.ipAddresses.push(ipaddress)
+                    }                    
+                }
+                // I mean..if you want
+                else if (octetnumber==2){
+                    block=(2**(8-octetmod))
+                    numberofblocks=Math.floor(c/block)
+                    network=block*numberofblocks
+                    firsthost=network
+                    broadcast=network+(block-1)
+                    
+                    for (i=firsthost;i<=broadcast;i++){
+                        for (j=0;j<255;j++){
+                            ipaddress=a+"."+b+"."+i+"."+j                            
+                            this.ipAddresses.push(ipaddress)
+                            
+                        }
+                    }
+                    
+                }
+                //Doing this would be rather nuts
+                else if (octetnumber==3){
+                    block=(2**(8-octetmod))
+                    numberofblocks=Math.floor(b/block)
+                    network=block*numberofblocks
+                    firsthost=network+1
+                    broadcast=network+(block-1)
+                    for (i=firsthost;i<broadcast;i++){
+                        for (j=0;j<255;j++){
+                            for (k=0;k<255;k++){
+                            ipaddress=a+"."+i+"."+j+"."+k
+                            this.ipAddresses.push(ipaddress)
+                        }
+                        }
+                    }      
+                }
+                //Doing this would be insane
+                else if (octetnumber==0){
+                    block=(2**(8-octetmod))
+                    numberofblocks=Math.floor(a/block)
+                    network=block*numberofblocks
+                    firsthost=network+1
+                    broadcast=network+(block-1)
+                    for (i=firsthost;i<broadcast;i++){
+                        for (j=0;j<255;j++){
+                            for (k=0;k<255;k++){
+                                for (l=0;l<255;l++){                                
+                                ipaddress=i+"."+j+"."+k+"."+l
+                                this.ipAddresses.push(ipaddress)
+                            }
+                        }
+                        }
+                    }
+                }                
+            },
+        scanNow: async function () {
+          for (let net of this.networks){
+                  
+            Vue.set(this.networksScanned, `${net}`, {
+              done: false,
+              items: []
+            });
+                  
+
+          //clear ipAddresses
+          this.ipAddresses=[];
+          //get the IPs and populate ipAddresses            
+          this.getNetworks(net)
+          this.status=2;
+          
+          for (let ipAddr of this.ipAddresses){
+
+                if (!this.stop) {
+                                
+                let host={
+                    "ipAddress":ipAddr,
+                    "port":[],
+                    "time":[]
+                    } 
+                this.Timings.push(host);
+
+                  for (let port of this.ports) {
+                    this.addressesToScan.push(
+                      `http://${ipAddr}:${port}`);
+                  }
+                  for (let comparatorPort of this.comparatorPorts) {
+                    this.addressesToScan.push(
+                      `http://${ipAddr}:${comparatorPort}`);
+                  }
+                }
+              }
+              //Cut list of addresses to scan down into groups
+              let groups = this.createGroups(this.addressesToScan);
+              if (groups) {
+                //substatusmax is used for the progress
+                this.substatusmax = (this.ipAddresses.length * (this.comparatorPorts.length+this.ports.length))                
+              }
+              //Scan each group of addresses
+              for (let group of groups) {
+                if (!this.stop) {
+                  //Create arrays of promised functions of each group IPs 
+                  let itemsToScan = [];
+                  for (let address of group) {
+                    if (!this.stop) {                      
+                      itemsToScan.push(this.scanHost(address, this.timeout));
+                    }
+                  }
+                  //Run each group and wait for it to finish
+                  let scanResults = await Promise.all(itemsToScan);
+                  //Parse the results from each group
+                  
+                  for (let result of scanResults) {
+                    if (!this.stop) {
+                      if (result) {
+                        this.networksScanned[net].items.push(result);                                               
+                      }
+                    }
+                  }
+                }
+              }
+              this.networksScanned[net].done = true;
+              //Check if the scanning is complete
+              let complete = true;
+              
+              for (let item of Object.values(this.networksScanned)) {                
+                if (!item.done) {
+                  complete = false;
+                }
+              }
+              
+              if (complete) {
+                this.status = 3;                
+              }
+            }
+          
+          
+
+          if (this.stop) {
+            this.classCs = [];
+            this.networksScanned = {};
+            this.newNetwork = "";
+            this.overallstatuscurrent = 0;
+            this.substatuscurrent = 0;
+            this.substatusmax = 0;
+            this.status = 0;
+            this.minTimeout = 20;
+            this.maxTimeout = 500;
+            this.Timings =  [];
+            this.resultArray = [];
+            this.stop = false;
+            
+        }
+        
+      
+      //Go through each timing object and add the times up to a global total which will be used to work out an average time
+      //If the port is in the comparator port, then for that object, work out the average for comparator ports and store that in the object
+      
+      this.Timings.forEach((timing) => {
+        comparatorsum=0;
+        for (i=0; i<timing.port.length; i++){            
+            this.totalTime+=parseInt(timing.time[i]);            
+            this.portCount++;
+            if (this.comparatorPorts.includes(timing.port[i])){
+                comparatorsum+=parseInt(timing.time[i])                    
+            }
+            
+            //While here, if any port for that IP is less than 0.65, then its probably up (this can save time later)
+            
+            if (parseInt(timing.time[i])<(this.timeout*0.3)){
+              timing.ipup="IP Up"
+            }
+          }
+            //The average of comparator ports for this IP:
+            timing.comparatorAverage=parseInt(comparatorsum)/this.comparatorPorts.length;
+            // Add this average to the global total, this will be used to work out the average for all comparator ports for all IPs:
+            this.comparatorPortSum+=timing.comparatorAverage
+                        
+      });
+      //Now work out the global comparator average:
+      this.comparatorAverage=this.comparatorPortSum/this.Timings.length
+            
+      
+      //Go through each timing, if it a comparator port is less than 70% the global comparator average time, then the IP may be up but filterin
+      // If it is not a comparator port, and less than 50% the time of the average for comparator ports on that IP, then it may be considered an open port
+      
+        this.Timings.forEach((timing) => {
+          timing.portup=[];
+          timing.diff=[];
+          if (timing.ipup=="IP Up"){
+            for (i=0; i<timing.port.length; i++){
+              if (!this.comparatorPorts.includes(timing.port[i])){
+                timing.diff[i]=Math.floor((Math.abs((timing.time[i]-timing.comparatorAverage))/timing.comparatorAverage)*100)
+                if (timing.diff[i]>this.portUpThreshold){
+                  timing.portup[i]="Timing above PortUp threshold"
+                }
+                else if (timing.diff[i]>this.portFilterThreshold){
+                    timing.portup[i]="Timing above Filtered threshold"
+                }
+                else {
+                  timing.portup[i]="Timing below Filtered threshold"
+                }                  
+                }
+                if(this.comparatorPorts.includes(timing.port[i]))
+                {
+                  timing.portup[i]="Comparator Port"
+                }              
+                this.displayTimings.push({"ipAddress":timing.ipAddress,"port":timing.port[i],"portup":timing.portup[i],"ipup":timing.ipup,"time":timing.time[i],"comparatorAverage":timing.comparatorAverage,"Percent Difference":timing.diff[i]})                
+                          
+              }
+          }
+          });
+          console.log("overallavg="+this.comparatorAverage)
+      },
+        scanHost: async function (address, timeout) {
+          let startTime = moment().valueOf();
+          
+          try {
+            let result = await axios({
+              method: "GET",
+              url: address,
+              timeout: timeout            
+            })
+            
+          } catch (err) {
+            
+            this.substatuscurrent++; 
+            let endTime = moment().valueOf();
+            let totalTime = endTime - startTime;
+            let regex= /https?\:\/\/([\d\.]+)\:([\d]+)/
+            let match = address.match(regex);
+            let ipAddr = `${match[1]}`;            
+            let port = `${match[2]}`;
+            
+            this.Timings.forEach(timing => {
+              
+
+                if (timing.ipAddress === ipAddr){
+                    timing.port.push(port);
+                    timing.time.push(totalTime);
+                }
+            });
+            
+            if (totalTime >= timeout) {
+              return (false);
+            } else if (totalTime <= this.minTimeout) {
+              return (false);
+            }
+            else {              
+              return address;
+            }
+          }
+          
+        },        
+        createGroups: function (array) {
+          return array.reduce((resultArray, item, index) => {
+            const groupIndex = Math.floor(index / this.ipGroupSize)
+            if (!resultArray[groupIndex]) {
+              resultArray[groupIndex] = []
+            }
+            resultArray[groupIndex].push(item)
+            return resultArray
+          }, [])
+        }
+      },
+      computed: {
+        validNetwork: function () {
+          if (this.newNetwork.match(
+            /^\b(1?[0-9]{1,2}|2[0-4][0-9]|25[0-5])\.(1?[0-9]{1,2}|2[0-4][0-9]|25[0-5])\.(1?[0-9]{1,2}|2[0-4][0-9]|25[0-5])\.(1?[0-9]{1,2}|2[0-4][0-9]|25[0-5])\/(\d{1,2})\b$/g)) {
+            return true;
+          }
+          return false;
+        },
+        validPort: function () {
+          if (this.newPort > 1024 && this.newPort <= 63535) {
+            return true;
+          }
+          return false
+        },
+        isDisabled: function () {
+          return !this.terms;
+        }
+    }
+    })
+  </script>
+</body>
+
+</html>
